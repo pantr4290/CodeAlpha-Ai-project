@@ -1,0 +1,131 @@
+import os
+import json
+import requests
+import streamlit as st
+from dotenv import load_dotenv
+
+# =========================
+# STEP 1: Load API details
+# =========================
+# Create a .env file in this folder with:
+# AZURE_TRANSLATOR_KEY=your_key_here
+# AZURE_TRANSLATOR_REGION=your_region_here
+# AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
+
+load_dotenv()
+
+API_KEY = os.getenv("AZURE_TRANSLATOR_KEY")
+API_REGION = os.getenv("AZURE_TRANSLATOR_REGION")
+API_ENDPOINT = os.getenv(
+    "AZURE_TRANSLATOR_ENDPOINT",
+    "https://api.cognitive.microsofttranslator.com"
+)
+
+if API_KEY is None or API_REGION is None:
+    warning_msg = (
+        "⚠️ API key or region not set. "
+        "Please set AZURE_TRANSLATOR_KEY and AZURE_TRANSLATOR_REGION in a .env file."
+    )
+else:
+    warning_msg = None
+
+# =========================
+# STEP 2: Language options
+# =========================
+LANGUAGES = {
+    "English": "en",
+    "Hindi": "hi",
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Chinese (Simplified)": "zh-Hans",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Arabic": "ar",
+    "Russian": "ru"
+}
+
+
+def translate_text(text: str, source_lang: str, target_lang: str) -> str:
+    """
+    Call Microsoft Translator API to translate text.
+
+    :param text: Input text.
+    :param source_lang: Language code (e.g., 'en').
+    :param target_lang: Language code (e.g., 'hi').
+    :return: Translated text or error message.
+    """
+    if not API_KEY or not API_REGION:
+        return "API configuration missing. Please set environment variables."
+
+    path = "/translate"
+    params = {
+        "api-version": "3.0",
+        "from": source_lang,
+        "to": [target_lang]
+    }
+    url = API_ENDPOINT.rstrip("/") + path
+
+    headers = {
+        "Ocp-Apim-Subscription-Key": API_KEY,
+        "Ocp-Apim-Subscription-Region": API_REGION,
+        "Content-type": "application/json"
+    }
+
+    body = [{"text": text}]
+
+    try:
+        response = requests.post(url, params=params, headers=headers, json=body)
+        response.raise_for_status()
+        data = response.json()
+        return data[0]["translations"][0]["text"]
+    except Exception as e:
+        return f"Error during translation: {e}"
+
+
+# =========================
+# STEP 3: Streamlit UI
+# =========================
+st.set_page_config(page_title="AI Language Translation Tool", layout="centered")
+st.title("🌐 AI Language Translation Tool")
+
+st.write(
+    "Enter text, select **source** & **target** languages, "
+    "and get the translated output using Microsoft Translator API."
+)
+
+if warning_msg:
+    st.warning(warning_msg)
+
+# Source & Target language selection
+col1, col2 = st.columns(2)
+with col1:
+    source_name = st.selectbox("Source Language", list(LANGUAGES.keys()), index=0)
+with col2:
+    target_name = st.selectbox("Target Language", list(LANGUAGES.keys()), index=1)
+
+source_lang = LANGUAGES[source_name]
+target_lang = LANGUAGES[target_name]
+
+if source_lang == target_lang:
+    st.info("Source and target language are same. Translation will not change the text.")
+
+# Text input
+input_text = st.text_area("Enter text to translate:", height=150)
+
+# Translate button
+if st.button("Translate"):
+    if not input_text.strip():
+        st.error("Please enter some text to translate.")
+    else:
+        with st.spinner("Translating..."):
+            translated = translate_text(input_text.strip(), source_lang, target_lang)
+
+        st.subheader("✅ Translated Text")
+        st.text_area("Output:", translated, height=150)
+
+        # Optional: simple copy helper
+        st.caption("You can select and copy the translated text manually.")
+
+st.markdown("---")
+st.caption("Built with Streamlit and Microsoft Translator API.")
