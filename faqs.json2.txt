@@ -1,0 +1,22 @@
+[
+  {
+    "question": "What is artificial intelligence?",
+    "answer": "Artificial intelligence (AI) is the simulation of human intelligence in machines that are programmed to think and learn."
+  },
+  {
+    "question": "What is machine learning?",
+    "answer": "Machine learning is a subset of AI that focuses on algorithms that improve automatically through experience and data."
+  },
+  {
+    "question": "What is deep learning?",
+    "answer": "Deep learning is a type of machine learning that uses multi-layered neural networks to model complex patterns in data."
+  },
+  {
+    "question": "What is a neural network?",
+    "answer": "A neural network is a set of algorithms modeled loosely after the human brain that is designed to recognize patterns."
+  },
+  {
+    "question": "What is NLP?",
+    "answer": "Natural Language Processing (NLP) is a field of AI focused on the interaction between computers and human language."
+  }
+]

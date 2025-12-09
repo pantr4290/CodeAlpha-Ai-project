@@ -1,0 +1,124 @@
+import json
+import string
+from pathlib import Path
+
+import nltk
+import streamlit as st
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# =========================
+# STEP 1: Download NLTK data
+# =========================
+# Run once: downloads tokenizer; wrapped in try/except to avoid errors.
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
+# =========================
+# STEP 2: Load FAQ data
+# =========================
+DATA_PATH = Path(__file__).parent / "faqs.json"
+
+with open(DATA_PATH, "r", encoding="utf-8") as f:
+    FAQS = json.load(f)
+
+questions = [item["question"] for item in FAQS]
+answers = [item["answer"] for item in FAQS]
+
+
+# =========================
+# STEP 3: Preprocessing
+# =========================
+def preprocess_text(text: str) -> str:
+    """
+    Lowercase, remove punctuation, tokenize (using NLTK), and join back.
+    This is a simple NLP preprocessing step.
+    """
+    text = text.lower()
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    tokens = nltk.word_tokenize(text)
+    return " ".join(tokens)
+
+
+preprocessed_questions = [preprocess_text(q) for q in questions]
+
+# =========================
+# STEP 4: Vectorization
+# =========================
+vectorizer = TfidfVectorizer()
+faq_matrix = vectorizer.fit_transform(preprocessed_questions)
+
+
+def find_best_answer(user_query: str, threshold: float = 0.2):
+    """
+    Find best matching FAQ using cosine similarity.
+
+    :param user_query: user input string
+    :param threshold: minimum similarity to accept a match
+    :return: (answer, similarity_score)
+    """
+    cleaned_query = preprocess_text(user_query)
+    query_vec = vectorizer.transform([cleaned_query])
+    similarities = cosine_similarity(query_vec, faq_matrix)[0]
+
+    best_idx = similarities.argmax()
+    best_score = similarities[best_idx]
+
+    if best_score < threshold:
+        return None, best_score
+
+    return answers[best_idx], best_score
+
+
+# =========================
+# STEP 5: Streamlit Chat UI
+# =========================
+st.set_page_config(page_title="FAQ Chatbot", layout="centered")
+st.title("🤖 FAQ Chatbot")
+
+st.write(
+    "Ask a question related to the topic, and the bot will find the **most similar FAQ** "
+    "and show the answer."
+)
+
+# Session state for chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Show previous chat
+for role, message in st.session_state.chat_history:
+    if role == "user":
+        st.markdown(f"**You:** {message}")
+    else:
+        st.markdown(f"**Bot:** {message}")
+
+st.markdown("---")
+
+user_input = st.text_input("Type your question here:")
+
+if st.button("Ask"):
+    if not user_input.strip():
+        st.error("Please enter a question.")
+    else:
+        answer, score = find_best_answer(user_input)
+
+        if answer is None:
+            bot_reply = (
+                "I'm not sure about that. Please rephrase your question "
+                "or check the FAQ list."
+            )
+        else:
+            bot_reply = f"{answer}\n\n_(similarity score: {score:.2f})_"
+
+        st.session_state.chat_history.append(("user", user_input))
+        st.session_state.chat_history.append(("bot", bot_reply))
+        st.experimental_rerun()
+
+st.markdown("### 📋 FAQ List")
+with st.expander("Click to view all FAQs"):
+    for q, a in zip(questions, answers):
+        st.markdown(f"**Q:** {q}")
+        st.markdown(f"**A:** {a}")
+        st.markdown("---")
